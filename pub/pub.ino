@@ -2,12 +2,12 @@
 #include <PubSubClient.h>
 
 // Informations WiFi
-const char* ssid = "TON_SSID";
-const char* password = "TON_MDP_WIFI";
+const char* ssid = "";
+const char* password = "";
 
 // Broker MQTT
-const char* mqtt_server = "172.24.153.231";  // IP de ton Ubuntu
-const int mqtt_port = 1883;
+const char* mqtt_server = "172.24.153.231";  
+const int mqtt_port = 1884;
 const char* topic = "Système d'Alerte pour la Sécurité d'un Véhicule";
 
 WiFiClient espClient;
