@@ -5,7 +5,7 @@ from datetime import datetime
 
 # --- Arguments CLI ---
 parser = argparse.ArgumentParser(description="Monitor MQTT topic for test messages")
-parser.add_argument("--broker", "-b", default="172.24.153.231", help="IP du broker MQTT")
+parser.add_argument("--broker", "-b", default="192.168.1.13", help="IP du broker MQTT")
 parser.add_argument("--port", "-p", type=int, default=1884, help="Port MQTT")
 parser.add_argument("--topic", "-t", default="Système d'Alerte pour la Sécurité d'un Véhicule", help="Topic MQTT")
 args = parser.parse_args()
