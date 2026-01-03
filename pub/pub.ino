@@ -1,35 +1,49 @@
 #include <WiFi.h>
 #include <PubSubClient.h>
+#include "esp_bt.h"   // 🔴 Désactiver Bluetooth
 
 // Informations WiFi
-const char* ssid = "";
-const char* password = "";
+const char* ssid = "TT_ABC0_2.4G";
+const char* password = "R4r3dTANe9";
 
 // Broker MQTT
-const char* mqtt_server = "172.24.153.231";  
+const char* mqtt_server = "192.168.1.13";
 const int mqtt_port = 1884;
-const char* topic = "Système d'Alerte pour la Sécurité d'un Véhicule";
+const char* topic = "systeme_alerte_vehicule";
 
 WiFiClient espClient;
 PubSubClient client(espClient);
 
 void setup_wifi() {
-  delay(10);
+  delay(100);
+
+  // 🔴 Désactivation Bluetooth (important)
+  btStop();
+
+  WiFi.mode(WIFI_STA);
+  WiFi.setSleep(false);
+
   Serial.println();
   Serial.print("Connexion à ");
   Serial.println(ssid);
 
   WiFi.begin(ssid, password);
 
-  while (WiFi.status() != WL_CONNECTED) {
+  unsigned long startAttemptTime = millis();
+
+  while (WiFi.status() != WL_CONNECTED &&
+         millis() - startAttemptTime < 20000) {
     delay(500);
     Serial.print(".");
   }
 
-  Serial.println("");
-  Serial.println("WiFi connecté");
-  Serial.println("IP : ");
-  Serial.println(WiFi.localIP());
+  if (WiFi.status() == WL_CONNECTED) {
+    Serial.println("\n✅ WiFi connecté");
+    Serial.print("IP : ");
+    Serial.println(WiFi.localIP());
+  } else {
+    Serial.println("\n❌ Échec connexion WiFi");
+  }
 }
 
 void reconnect() {
@@ -40,7 +54,7 @@ void reconnect() {
     } else {
       Serial.print("Échec, rc=");
       Serial.print(client.state());
-      Serial.println(" Nouvelle tentative dans 5s");
+      Serial.println(" → nouvelle tentative dans 5s");
       delay(5000);
     }
   }
@@ -48,6 +62,8 @@ void reconnect() {
 
 void setup() {
   Serial.begin(115200);
+  delay(1000);
+
   setup_wifi();
   client.setServer(mqtt_server, mqtt_port);
 }
@@ -58,11 +74,12 @@ void loop() {
   }
   client.loop();
 
-  // Exemple de message
-  String message = "Alerte : intrusion détectée !";
+  // Message de test
+  const char* message = "Alerte : intrusion détectée !";
+
   Serial.print("Publication : ");
   Serial.println(message);
-  client.publish(topic, message.c_str());
 
-  delay(5000); // toutes les 5 secondes
+  client.publish(topic, message);
+  delay(5000);  // toutes les 5 secondes
 }

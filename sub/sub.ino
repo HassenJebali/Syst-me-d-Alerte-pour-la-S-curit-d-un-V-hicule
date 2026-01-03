@@ -2,13 +2,13 @@
 #include <PubSubClient.h>
 
 // Informations WiFi
-const char* ssid = "";
-const char* password = "";
+const char* ssid = "TT_ABC0_2.4G";
+const char* password = "R4r3dTANe9";
 
 // Broker MQTT
-const char* mqtt_server = "172.24.153.231"; 
+const char* mqtt_server = "192.168.1.13"; 
 const int mqtt_port = 1884;
-const char* topic = "Système d'Alerte pour la Sécurité d'un Véhicule";
+const char* topic = "systeme_alerte_vehicule";
 
 WiFiClient espClient;
 PubSubClient client(espClient);
