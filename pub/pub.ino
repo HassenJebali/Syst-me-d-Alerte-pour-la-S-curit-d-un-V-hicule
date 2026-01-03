@@ -5,11 +5,11 @@
 #include <Adafruit_BMP280.h>
 #include "esp_bt.h" 
 
-// Informations WiFi
+// WiFi
 const char* ssid = "PC_DE_king";
 const char* password = "000000001";
 
-// Broker MQTT
+// MQTT
 const char* mqtt_server = "192.168.1.13";
 const int mqtt_port = 1884;
 const char* topic = "systeme_alerte_vehicule";
@@ -17,6 +17,15 @@ const char* topic = "systeme_alerte_vehicule";
 // ===== Capteurs =====
 MPU9250_asukiaaa imu;
 Adafruit_BMP280 bmp;
+
+// ================= HC-SR04 =================
+#define TRIG_PIN 26
+#define ECHO_PIN 27
+#define LED_DISTANCE 19
+
+#define SOUND_SPEED 0.034   // cm/us
+#define DIST_THRESHOLD_CM 50.0  // 0.5 m
+
 
 // ===== LDR + LED =====
 #define LDR_PIN 33        // ADC
@@ -76,6 +85,29 @@ void reconnect() {
   }
 }
 
+// ===== HC-SR04 =====
+float readDistanceCM() {
+  // Nettoyage
+  digitalWrite(TRIG_PIN, LOW);
+  delayMicroseconds(5);
+
+  // Impulsion TRIG
+  digitalWrite(TRIG_PIN, HIGH);
+  delayMicroseconds(10);
+  digitalWrite(TRIG_PIN, LOW);
+
+  // Lecture ECHO avec timeout (30 ms ≈ 5 m)
+  long duration = pulseIn(ECHO_PIN, HIGH, 30000);
+
+  if (duration == 0) {
+    return -1.0;  // aucun écho
+  }
+
+  // distance en cm
+  return (duration * 0.0343) / 2.0;
+}
+
+
 void setup() {
   Serial.begin(115200);
   delay(1000);
@@ -86,6 +118,15 @@ void setup() {
     // ADC ESP32
   analogReadResolution(12);
   analogSetAttenuation(ADC_11db);
+
+  //infrarouge
+  pinMode(TRIG_PIN, OUTPUT);
+  pinMode(ECHO_PIN, INPUT);
+  pinMode(LED_DISTANCE, OUTPUT);
+
+  digitalWrite(TRIG_PIN, LOW);
+  digitalWrite(LED_DISTANCE, LOW);
+
 
   pinMode(LED_PIN, OUTPUT);
 
@@ -102,6 +143,8 @@ void setup() {
     Serial.println("✅ BMP280 OK");
   }
 }
+
+
 
 // ================= LOOP =================
 void loop() {
@@ -132,6 +175,17 @@ void loop() {
   bool sombre = lightValue < LIGHT_THRESHOLD;
   digitalWrite(LED_PIN, sombre ? HIGH : LOW);
 
+float distance_cm = readDistanceCM();
+bool obstacle = false;
+
+if (distance_cm > 0 && distance_cm <= DIST_THRESHOLD_CM) {
+  obstacle = true;
+  digitalWrite(LED_DISTANCE, HIGH);
+} else {
+  digitalWrite(LED_DISTANCE, LOW);
+}
+
+
   // ===== JSON MQTT =====
   String payload = "{";
   payload += "\"ax\":" + String(ax,2) + ",";
@@ -145,6 +199,8 @@ void loop() {
   payload += "\"dark\":" + String(sombre ? 1 : 0) + ",";
   payload += "\"temp\":" + String(temperature,1) + ",";
   payload += "\"pre\":" + String(pressure,1);
+  payload += ",\"distance_cm\":" + String(distance_cm,1);
+  payload += ",\"obstacle\":" + String(obstacle ? 1 : 0);
   payload += "}";
 
   Serial.println(payload);
