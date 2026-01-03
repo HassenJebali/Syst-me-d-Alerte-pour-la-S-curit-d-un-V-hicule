@@ -1,23 +1,35 @@
 #include <WiFi.h>
 #include <PubSubClient.h>
-#include "esp_bt.h"   // 🔴 Désactiver Bluetooth
+#include <Wire.h>
+#include <MPU9250_asukiaaa.h>
+#include <Adafruit_BMP280.h>
+#include "esp_bt.h" 
 
 // Informations WiFi
-const char* ssid = "TT_ABC0_2.4G";
-const char* password = "R4r3dTANe9";
+const char* ssid = "PC_DE_king";
+const char* password = "000000001";
 
 // Broker MQTT
 const char* mqtt_server = "192.168.1.13";
 const int mqtt_port = 1884;
 const char* topic = "systeme_alerte_vehicule";
 
+// ===== Capteurs =====
+MPU9250_asukiaaa imu;
+Adafruit_BMP280 bmp;
+
+// ===== Seuils =====
+const float SHOCK_THRESHOLD = 2.5;      // g
+const float TILT_THRESHOLD  = 30.0;     // degrés
+
 WiFiClient espClient;
 PubSubClient client(espClient);
+
+
 
 void setup_wifi() {
   delay(100);
 
-  // 🔴 Désactivation Bluetooth (important)
   btStop();
 
   WiFi.mode(WIFI_STA);
@@ -66,20 +78,59 @@ void setup() {
 
   setup_wifi();
   client.setServer(mqtt_server, mqtt_port);
+
+  Wire.begin(21, 22);
+
+  imu.setWire(&Wire);
+  imu.beginAccel();
+  imu.beginGyro();
+  imu.beginMag();
+
+  if (!bmp.begin(0x76)) {
+    Serial.println("❌ BMP280 non détecté");
+  } else {
+    Serial.println("✅ BMP280 OK");
+  }
 }
 
+
 void loop() {
-  if (!client.connected()) {
-    reconnect();
-  }
+  if (!client.connected()) reconnect();
   client.loop();
 
-  // Message de test
-  const char* message = "Alerte : intrusion détectée !";
+  imu.accelUpdate();
 
-  Serial.print("Publication : ");
-  Serial.println(message);
+  float ax = imu.accelX();
+  float ay = imu.accelY();
+  float az = imu.accelZ();
 
-  client.publish(topic, message);
-  delay(5000);  // toutes les 5 secondes
+  // Accélération totale
+  float acc_total = sqrt(ax * ax + ay * ay + az * az);
+
+  // Inclinaison (axe X)
+  float angle = atan2(ax, az) * 180.0 / PI;
+
+  bool choc = acc_total > SHOCK_THRESHOLD;
+  bool inclinaison = abs(angle) > TILT_THRESHOLD;
+
+  float temperature = bmp.readTemperature();
+  float pressure = bmp.readPressure() / 100.0;
+
+  // ===== JSON MQTT =====
+  String payload = "{";
+  payload += "\"ax\":" + String(ax, 2) + ",";
+  payload += "\"ay\":" + String(ay, 2) + ",";
+  payload += "\"az\":" + String(az, 2) + ",";
+  payload += "\"acc_total\":" + String(acc_total, 2) + ",";
+  payload += "\"angle\":" + String(angle, 1) + ",";
+  payload += "\"choc\":" + String(choc ? "true" : "false") + ",";
+  payload += "\"inclinaison\":" + String(inclinaison ? "true" : "false") + ",";
+  payload += "\"temp\":" + String(temperature, 1) + ",";
+  payload += "\"pression\":" + String(pressure, 1);
+  payload += "}";
+
+  Serial.println(payload);
+  client.publish(topic, payload.c_str());
+
+  delay(1000);
 }
