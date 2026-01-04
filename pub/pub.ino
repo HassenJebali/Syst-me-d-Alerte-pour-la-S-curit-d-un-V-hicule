@@ -10,7 +10,7 @@ const char* ssid = "PC_DE_king";
 const char* password = "000000001";
 
 // MQTT
-const char* mqtt_server = "192.168.1.13";
+const char* mqtt_server = "192.168.137.1";
 const int mqtt_port = 1884;
 const char* topic = "systeme_alerte_vehicule";
 

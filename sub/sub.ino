@@ -1,21 +1,23 @@
 #include <WiFi.h>
 #include <PubSubClient.h>
+#include <ArduinoJson.h>
 
 // Informations WiFi
-const char* ssid = "TT_ABC0_2.4G";
-const char* password = "R4r3dTANe9";
+const char* ssid = "PC_DE_king";
+const char* password = "000000001";
 
 // Broker MQTT
-const char* mqtt_server = "192.168.1.13"; 
+const char* mqtt_server = "192.168.137.1"; 
 const int mqtt_port = 1884;
 const char* topic = "systeme_alerte_vehicule";
 
 WiFiClient espClient;
 PubSubClient client(espClient);
 
+// ===== LED d’alerte =====
+#define LED_ALERT 25   
+
 void setup_wifi() {
-  delay(10);
-  Serial.println();
   Serial.print("Connexion à ");
   Serial.println(ssid);
 
@@ -32,14 +34,65 @@ void setup_wifi() {
   Serial.println(WiFi.localIP());
 }
 
+// ===== CALLBACK MQTT =====
 void callback(char* topic, byte* payload, unsigned int length) {
-  Serial.print("Message reçu [");
-  Serial.print(topic);
-  Serial.print("] : ");
-  for (int i = 0; i < length; i++) {
-    Serial.print((char)payload[i]);
+  Serial.println("\n📩 Message MQTT reçu");
+
+  // Convert payload -> String
+  String message;
+  for (unsigned int i = 0; i < length; i++) {
+    message += (char)payload[i];
   }
-  Serial.println();
+
+  Serial.println(message);
+
+  // ===== JSON Parsing =====
+  StaticJsonDocument<512> doc;
+  DeserializationError error = deserializeJson(doc, message);
+
+  if (error) {
+    Serial.print("❌ Erreur JSON : ");
+    Serial.println(error.c_str());
+    return;
+  }
+
+  // ===== Lecture des données =====
+  float ax = doc["ax"];
+  float ay = doc["ay"];
+  float az = doc["az"];
+  float acc = doc["acceleration"];
+  float angle = doc["ang"];
+
+  bool choc = doc["choc"];
+  bool inclinaison = doc["inclinaison"];
+  bool dark = doc["dark"];
+  bool obstacle = doc["obstacle"];
+
+  float distance = doc["distance_cm"];
+  float temp = doc["temp"];
+  float pressure = doc["pre"];
+
+  // ===== Affichage structuré =====
+  Serial.println("------ Données Véhicule ------");
+  Serial.printf("Acc XYZ : %.2f | %.2f | %.2f\n", ax, ay, az);
+  Serial.printf("Acc totale : %.2f g\n", acc);
+  Serial.printf("Angle : %.1f °\n", angle);
+  Serial.printf("Température : %.1f °C\n", temp);
+  Serial.printf("Pression : %.1f hPa\n", pressure);
+  Serial.printf("Distance obstacle : %.1f cm\n", distance);
+
+  Serial.printf("Choc : %s\n", choc ? "OUI" : "NON");
+  Serial.printf("Inclinaison : %s\n", inclinaison ? "OUI" : "NON");
+  Serial.printf("Obstacle : %s\n", obstacle ? "OUI" : "NON");
+  Serial.printf("Sombre : %s\n", dark ? "OUI" : "NON");
+
+  // ===== Action locale (exemple) =====
+  if (choc || obstacle || inclinaison) {
+    digitalWrite(LED_ALERT, HIGH);
+    Serial.println("🚨 ALERTE ACTIVE !");
+  } else {
+    digitalWrite(LED_ALERT, LOW);
+  }
 }
 
 void reconnect() {
@@ -59,6 +112,8 @@ void reconnect() {
 
 void setup() {
   Serial.begin(115200);
+  pinMode(LED_ALERT, OUTPUT);
+
   setup_wifi();
   client.setServer(mqtt_server, mqtt_port);
   client.setCallback(callback);
