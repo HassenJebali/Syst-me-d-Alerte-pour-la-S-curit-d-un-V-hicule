@@ -16,6 +16,7 @@ PubSubClient client(espClient);
 
 // ===== LED d’alerte =====
 #define LED_ALERT 25   
+#define BUZZER 26
 
 void setup_wifi() {
   Serial.print("Connexion à ");
@@ -86,13 +87,18 @@ void callback(char* topic, byte* payload, unsigned int length) {
   Serial.printf("Obstacle : %s\n", obstacle ? "OUI" : "NON");
   Serial.printf("Sombre : %s\n", dark ? "OUI" : "NON");
 
-  // ===== Action locale (exemple) =====
+  // ===== Gestion des alertes =====
   if (choc || obstacle || inclinaison) {
-    digitalWrite(LED_ALERT, HIGH);
-    Serial.println("🚨 ALERTE ACTIVE !");
-  } else {
-    digitalWrite(LED_ALERT, LOW);
-  }
+    for(int i=0; i<5; i++){   // clignote 5 fois
+        digitalWrite(LED_ALERT, HIGH);
+        digitalWrite(BUZZER, HIGH);
+        delay(200);
+        digitalWrite(LED_ALERT, LOW);
+        digitalWrite(BUZZER, LOW);
+        delay(200);
+    }
+} 
+
 }
 
 void reconnect() {
@@ -113,6 +119,7 @@ void reconnect() {
 void setup() {
   Serial.begin(115200);
   pinMode(LED_ALERT, OUTPUT);
+  pinMode(BUZZER, OUTPUT); 
 
   setup_wifi();
   client.setServer(mqtt_server, mqtt_port);
